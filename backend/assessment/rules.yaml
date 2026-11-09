@@ -1,0 +1,54 @@
+version: "2.0"
+rules:
+  - id: SE_URGENCY_EN
+    description: "Urgency language (English)"
+    category: social_engineering
+    patterns: ["act now", "immediately", "urgent", "within 24 hours", "last warning", "expire today", "time is running out"]
+  - id: SE_URGENCY_HI
+    description: "Urgency language (Hindi)"
+    category: social_engineering
+    patterns: ["तुरंत", "अभी", "जल्दी", "24 घंटे", "अंतिम चेतावनी", "बंद हो जाएगा", "समय समाप्त"]
+  - id: SE_AUTHORITY_EN
+    description: "Authority / Banking impersonation (English)"
+    category: social_engineering
+    patterns: ["sbi", "hdfc", "icici", "pnb", "rbi", "bank", "kyc", "electricity bill", "power disconnection", "income tax department", "police department"]
+  - id: SE_AUTHORITY_HI
+    description: "Authority / Banking impersonation (Hindi)"
+    category: social_engineering
+    patterns: ["बैंक", "केवाईसी", "खाता बंद", "पहचान सत्यापित", "बिजली बिल", "बिजली कनेक्शन काट दिया जाएगा", "आयकर विभाग", "पुलिस"]
+  - id: SE_FINANCIAL_BAIT_EN
+    description: "Financial lottery / gift bait (English)"
+    category: social_engineering
+    patterns: ["lottery", "prize", "you won", "cashback", "free money", "claim reward", "part time job", "earn 5000 daily"]
+  - id: SE_FINANCIAL_BAIT_HI
+    description: "Financial lottery / gift bait (Hindi)"
+    category: social_engineering
+    patterns: ["लॉटरी", "इनाम", "जीते", "कैशबैक", "मुफ्त", "रुपये जीतें", "उपहार"]
+  - id: SE_CREDENTIAL_EN
+    description: "Credential & OTP Harvesting (English)"
+    category: social_engineering
+    patterns: ["enter otp", "share pin", "password", "cvv", "click to verify", "update pan card", "link aadhar"]
+  - id: SE_CREDENTIAL_HI
+    description: "Credential & OTP Harvesting (Hindi)"
+    category: social_engineering
+    patterns: ["ओटीपी", "पिन", "पासवर्ड", "सीवीवी", "सत्यापित करें", "पैन कार्ड अपडेट", "आधार लिंक"]
+  - id: SE_ACCOUNT_SUSPENSION_EN
+    description: "Account suspension threat (English)"
+    category: social_engineering
+    patterns: ["account suspended", "account blocked permanently", "restricted access", "reactivate your account", "deactivated"]
+  - id: SE_ACCOUNT_SUSPENSION_HI
+    description: "Account suspension threat (Hindi)"
+    category: social_engineering
+    patterns: ["खाता निलंबित", "खाता बंद कर दिया जाएगा", "प्रतिबंधित", "फिर सक्रिय करें", "खाता अवरुद्ध", "अमान्य"]
+  - id: TECH_URL_PRESENT
+    description: "Contains one or more external URLs"
+    category: technical
+    patterns: []
+  - id: TECH_NEW_DOMAIN
+    description: "Newly registered domain (<30 days)"
+    category: technical
+    patterns: []
+  - id: TECH_SUSPICIOUS_TLD
+    description: "Domain uses suspicious high-abuse TLD (.top, .xyz, .click, .info, .buzz)"
+    category: technical
+    patterns: []
