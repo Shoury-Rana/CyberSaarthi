@@ -1,0 +1,9 @@
+# Documented Limitations & Safety Boundaries
+
+1. **No Zero-Day Guarantee**: `NO_KNOWN_THREAT_DETECTED` strictly means no known indicators or heuristic rules matched at the time of evaluation. It is never a guarantee of safety or legitimacy, and the system never outputs `"safe"` or `"legitimate"`.
+2. **Advisory Only (Not Legal Determination)**: The system never declares "confirmed financial fraud"—only law enforcement or official banking processes make legal fraud determinations.
+3. **No Server-Side URL Fetching**: The Django backend never visits, crawls, screenshots, or renders user-submitted URLs, nor executes APKs. External domain/URL checks rely exclusively on Threat Intelligence metadata (PhishTank, RDAP registration events, AbuseIPDB).
+4. **No Automated Complaint Filing**: Generated ReportLab PDFs are preparation dossiers to assist victims in filing manually at `cybercrime.gov.in` or calling `1930`.
+5. **Deterministic Ruleset (No LLM)**: Classification uses a transparent, versioned YAML ruleset (`backend/assessment/rules.yaml` v2.0) to ensure deterministic, hallucination-free explainability.
+6. **Provider Quotas & Keys**: PhishTank and AbuseIPDB lookups require valid API keys in n8n; missing keys gracefully degrade those branches to `UNSUPPORTED` while RDAP (`rdap.org`) and local bilingual heuristics continue functioning.
+7. **Font Rendering in PDF**: ReportLab defaults to Unicode TrueType system fonts (`Nirmala.ttf` / `Arial.ttf` on Windows, `DejaVuSans.ttf` on Linux) when available and safely falls back to Latin-1 sanitization so non-ASCII messages never crash PDF generation.

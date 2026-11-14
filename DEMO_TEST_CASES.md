@@ -1,198 +1,108 @@
-# Citizen CyberSathi: Demonstration & Test Scenarios
+# Citizen CyberSathi: End-to-End Demo & Verification Scenarios
 
-This document outlines standard test cases to demonstrate and validate the **Citizen CyberSathi** scam intelligence engine. Each test covers a real-world scam vector commonly observed across India (banking fraud, electricity disconnection SMS, UPI bait, and lottery scams) as well as benign control cases.
-
----
-
-## Quick Reference Summary Matrix
-
-| # | Test Scenario | Language | Expected Classification | Key Extracted Entities | Key Triggered Rules |
-|---|---|---|---|---|---|
-| **1** | Hindi Banking / KYC Account Block SMS | Hindi | `HIGH_RISK` | Defanged URL, Domain | `SE_URGENCY_HI`, `SE_AUTHORITY_HI`, `TECH_SUSPICIOUS_TLD` |
-| **2** | Electricity Bill Disconnection Threat | English | `HIGH_RISK` | 10-Digit Phone (`9876543210`) | `SE_URGENCY_EN`, `SE_AUTHORITY_EN` |
-| **3** | Lottery / Cash Prize with UPI Handle | English | `HIGH_RISK` | UPI ID (`claim@okhdfcbank`) | `SE_FINANCIAL_BAIT_EN`, `SE_URGENCY_EN` |
-| **4** | Hindi Lottery & WhatsApp Cashback Scam | Hindi | `HIGH_RISK` | Defanged URL, Phone | `SE_FINANCIAL_BAIT_HI`, `SE_URGENCY_HI` |
-| **5** | Credential & OTP Harvesting with PAN/Aadhaar | English | `HIGH_RISK` | Defanged URL | `SE_CREDENTIAL_EN`, `SE_ACCOUNT_SUSPENSION_EN`, `TECH_SUSPICIOUS_TLD` |
-| **6** | Financial Loss Escalation (Helpline 1930) | Any | Any + Alert Banner | Any | Emergency 1930 Banner Displayed |
-| **7** | Benign / Clean Message (Control Test) | English | `NO_KNOWN_THREAT_DETECTED` | None | None (`[]`), Safe Disclaimer Shown |
-| **8** | Embedded Credential Injection Defense | Any | Neutral | Cleaned host only | Invalid URL Credential Stripping |
+Use these test cases to verify both the **Telegram Bot + n8n SOAR pipeline** and the **Django REST API** (via `curl` or `/api/docs/`).
 
 ---
 
-## Test Scenarios
+## Summary Matrix
 
-### Test Case 1: Hindi Banking & KYC Account Block SMS
-* **Attack Vector**: Smishing targeting Indian public sector bank customers using urgency and fake KYC deadlines.
-* **Input Text to Paste**:
+| # | Scenario | Channel / Command | Expected Classification | Key Extracted / Triggered Signals |
+|---|---|---|---|---|
+| **1** | Hindi Banking KYC Scam + URL | Telegram text | `HIGH_RISK` | `SE_URGENCY_HI`, `SE_AUTHORITY_HI`, `TECH_SUSPICIOUS_TLD`, RDAP check, defanged URL |
+| **2** | Electricity Cut + Indian Phone | Telegram text | `HIGH_RISK` | `SE_URGENCY_EN`, `SE_AUTHORITY_EN`, Phone `9876543210` |
+| **3** | Lottery Bait + UPI VPA Handle | Telegram text | `HIGH_RISK` | `SE_FINANCIAL_BAIT_EN`, `SE_URGENCY_EN`, UPI `claimreward[@]okhdfcbank` |
+| **4** | Financial Loss Escalation (`1930`) | `/lost <msg>` | `HIGH_RISK` / `SUSPICIOUS` | Emergency **1930** Helpline alert in Telegram & PDF header |
+| **5** | Newly Registered Domain (`<30d`) | n8n RDAP / `/assess` | `SUSPICIOUS` / `HIGH_RISK` | `TECH_NEW_DOMAIN` from RDAP `registration` date |
+| **6** | PhishTank Verified Match | n8n PhishTank / `/assess` | `CONFIRMED_MALICIOUS` | `TECH_PROVIDER_MATCH` (`HIGH` confidence) |
+| **7** | AbuseIPDB Reputation Match | n8n AbuseIPDB / `/assess` | `SUSPICIOUS` (alone) / `HIGH_RISK` (+SE) | Never auto-confirmed malicious by IP score alone |
+| **8** | Benign Control Message | Telegram text | `NO_KNOWN_THREAT_DETECTED` | Mandatory non-safety disclaimer displayed |
+| **9** | History, PDF Dossier & Deletion | `/history`, `/report`, `/delete` | `200 OK` / `204` | Returns user's scans, sends ReportLab PDF, purges record |
+
+---
+
+## Telegram Bot Live Demo Walkthrough
+
+### Test 1: `/start` & `/help`
+* **Send**: `/start`
+* **Expected Reply**: Welcome guide explaining how to forward suspicious SMS/URLs and listing `/lost`, `/history`, `/report`, `/delete`, and `/help`.
+
+### Test 2: Hindi Banking / KYC Account Block SMS
+* **Send**:
   ```text
-  प्रिय ग्राहक, आपका SBI बैंक खाता आज रात 9:30 बजे बंद कर दिया जाएगा। तुरंत अपना पैन कार्ड और केवाईसी अपडेट करें: http://sbi-kyc-verify.info
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
+  प्रिय ग्राहक, आपका SBI बैंक खाता आज रात 9:30 बजे बंद कर दिया जाएगा। तुरंत अपना केवाईसी अपडेट करें: http://sbi-kyc-verify.info
+  ```
+* **Expected Result**:
+  * **Classification**: `HIGH_RISK` (Confidence: `HIGH`)
+  * **Rules Triggered**: `SE_URGENCY_HI`, `SE_AUTHORITY_HI`, `TECH_URL_PRESENT`, `TECH_SUSPICIOUS_TLD`
+  * **Defanged Output**: `hxxp://sbi-kyc-verify[.]info/` (non-clickable in Telegram!)
+  * **RDAP Observation**: Queried for `sbi-kyc-verify.info` (if `< 30` days old, also triggers `TECH_NEW_DOMAIN`).
+
+### Test 3: Electricity Disconnection + 10-Digit Mobile
+* **Send**:
+  ```text
+  Dear Customer, Your electricity bill was unpaid and power disconnection will happen tonight. Contact officer immediately at +91 9876543210.
+  ```
+* **Expected Result**:
   * **Classification**: `HIGH_RISK`
-  * **Confidence**: `HIGH`
-  * **Triggered Rule IDs**:
-    * `SE_URGENCY_HI` (matched `"तुरंत"`, `"बंद"`)
-    * `SE_AUTHORITY_HI` (matched `"बैंक"`, `"केवाईसी"`)
-    * `TECH_URL_PRESENT`
-    * `TECH_SUSPICIOUS_TLD` (matched `.info`)
-  * **Extracted Indicators (Defanged)**:
-    * `hxxp://sbi-kyc-verify[.]info`
-    * `sbi-kyc-verify[.]info`
-  * **Bilingual UI**: Switch to हिन्दी to verify translated explanation and advice.
+  * **Rules Triggered**: `SE_URGENCY_EN`, `SE_AUTHORITY_EN`
+  * **Extracted Indicator**: `PHONE: 9876543210`
 
----
-
-
-### Test Case 2: Electricity Power Disconnection Alert
-* **Attack Vector**: High-prevalence nationwide electricity disconnection SMS targeting homeowners and small business owners.
-* **Input Text to Paste**:
+### Test 4: Lottery Bait with Fraudulent UPI Handle
+* **Send**:
   ```text
-  Dear Customer, Your Electricity power connection will be disconnected tonight at 9:30 PM from the power office because your previous month electricity bill was not updated. Please immediately contact our electricity officer at +91 9876543210.
+  Congratulations! You won a lottery prize and cashback. Act now to claim reward immediately on claimreward@okhdfcbank
   ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
+* **Expected Result**:
   * **Classification**: `HIGH_RISK`
-  * **Confidence**: `HIGH`
-  * **Triggered Rule IDs**:
-    * `SE_URGENCY_EN` (matched `"immediately"`)
-    * `SE_AUTHORITY_EN` (matched `"electricity bill"`, `"power disconnection"`)
-  * **Extracted Indicators**:
-    * `9876543210` (Extracted and normalized to 10-digit Indian mobile number format)
+  * **Rules Triggered**: `SE_FINANCIAL_BAIT_EN`, `SE_URGENCY_EN`
+  * **Extracted Indicator**: `UPI: claimreward[@]okhdfcbank`
 
----
-
-### Test Case 3: Lottery Prize & Cashback with Fraudulent UPI Handle
-* **Attack Vector**: Fake reward / lottery cashback prompting victim to send a small processing fee via UPI to an unauthorized handle.
-* **Input Text to Paste**:
+### Test 5: Financial Loss Escalation (`/lost`)
+* **Send**:
   ```text
-  Congratulations! You won a lottery prize and cashback of Rs 25,000. Act now to claim reward immediately. Pay Rs 25 registration fee to claimreward@okhdfcbank
+  /lost I entered my OTP on https://fake-bank-kyc.xyz and Rs 25,000 was debited immediately.
   ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
-  * **Classification**: `HIGH_RISK`
-  * **Confidence**: `HIGH`
-  * **Triggered Rule IDs**:
-    * `SE_FINANCIAL_BAIT_EN` (matched `"lottery"`, `"prize"`, `"cashback"`, `"claim reward"`)
-    * `SE_URGENCY_EN` (matched `"act now"`, `"immediately"`)
-  * **Extracted Indicators**:
-    * `claimreward@okhdfcbank` (Categorized as `UPI`)
+* **Expected Result**:
+  * Reply starts with bold emergency warning: **Call National Cybercrime Helpline 1930 immediately!**
+  * `reported_financial_loss: true` stored on scan, activating the red alert box inside the PDF dossier.
 
----
-
-### Test Case 4: Hindi WhatsApp Lottery Scheme
-* **Attack Vector**: Hindi WhatsApp forwarded message offering fake government scheme money or lottery prizes.
-* **Input Text to Paste**:
+### Test 6: Benign Control Message
+* **Send**:
   ```text
-  बधाई हो! आपने जीता है 5 लाख का नकद इनाम और लॉटरी। मुफ्त उपहार प्राप्त करने के लिए जल्दी संपर्क करें: 09123456789 या देखें http://kbc-lottery-winner.xyz
+  Hi Anjali, let us meet tomorrow at 4 PM to review the project slides.
   ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
-  * **Classification**: `HIGH_RISK`
-  * **Confidence**: `HIGH`
-  * **Triggered Rule IDs**:
-    * `SE_FINANCIAL_BAIT_HI` (matched `"इनाम"`, `"लॉटरी"`, `"मुफ्त"`)
-    * `SE_URGENCY_HI` (matched `"जल्दी"`)
-    * `TECH_URL_PRESENT`
-    * `TECH_SUSPICIOUS_TLD` (matched `.xyz`)
-  * **Extracted Indicators**:
-    * Phone: `9123456789`
-    * URL: `hxxp://kbc-lottery-winner[.]xyz`
-
----
-
-### Test Case 5: Credential & OTP Harvesting with Account Suspension
-* **Attack Vector**: Phishing email/SMS attempting to steal login passwords and OTP tokens through panic creation.
-* **Input Text to Paste**:
-  ```text
-  Official notice: Your HDFC bank netbanking account suspended permanently due to suspicious activity. Enter OTP and password to reactivate your account: https://hdfc-netbanking-portal.click
-  ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
-  * **Classification**: `HIGH_RISK`
-  * **Triggered Rule IDs**:
-    * `SE_AUTHORITY_EN` (matched `"hdfc"`, `"bank"`, `"official notice"`)
-    * `SE_ACCOUNT_SUSPENSION_EN` (matched `"account suspended"`, `"account blocked permanently"`, `"reactivate your account"`)
-    * `SE_CREDENTIAL_EN` (matched `"enter otp"`, `"password"`)
-    * `TECH_URL_PRESENT`
-    * `TECH_SUSPICIOUS_TLD` (matched `.click`)
-  * **Extracted Indicators**:
-    * `hxxps://hdfc-netbanking-portal[.]click`
-
----
-
-### Test Case 6: Emergency Financial Loss Escalation (1930 Helpline)
-* **Attack Vector**: Testing immediate triage when a victim reports that money has already been stolen.
-* **Input Text to Paste**:
-  ```text
-  I received a call claiming to be my bank manager and they deducted Rs 45,000 from my savings account.
-  ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: **CHECKED** (`reported_financial_loss: true`)
-* **Expected Results**:
-  * **Prominent Red Alert Banner**:
-    * Displays: *"EMERGENCY: Call the National Cybercrime Helpline immediately: 1930"*
-    * Provides direct clickable call link: `tel:1930`
-  * **Evidence Dossier (PDF)**:
-    * Places a red emergency alert box at the top of the generated document instructing the victim on immediate "Golden Hour" bank account freezing.
-
----
-
-### Test Case 7: Benign Control Message (No Known Threat Detected)
-* **Attack Vector**: Non-fraudulent, legitimate communication to verify false-positive prevention.
-* **Input Text to Paste**:
-  ```text
-  Hi Anjali, please find the minutes from our Monday morning project standup attached. Let us reschedule our sync to 3 PM tomorrow.
-  ```
-* **Form Settings**:
-  * *Privacy Notice*: Checked
-  * *Lost Money*: Unchecked
-* **Expected Results**:
+* **Expected Result**:
   * **Classification**: `NO_KNOWN_THREAT_DETECTED`
-  * **Confidence**: `LOW`
-  * **Triggered Rule IDs**: None (`[]`)
-  * **Extracted Indicators**: None
-  * **Mandatory Safety Disclaimer Displayed**:
-    * *"NO_KNOWN_THREAT_DETECTED does not guarantee safety or legitimacy. Always exercise caution with unsolicited links or requests."*
-    * *(Note: The system strictly adheres to the principle of never declaring an unknown message as "100% Safe" or "Guaranteed Legitimate".)*
+  * **Rules Triggered**: None (`[]`)
+  * **Mandatory Disclaimer**: *"NO_KNOWN_THREAT_DETECTED does not guarantee safety or legitimacy. Always exercise caution with unsolicited links or requests."*
+
+### Test 7: History, PDF Dossier, and User Deletion
+1. **Send**: `/history` -> Lists up to 5 recent scans for your Telegram `chat_id` (matched via keyed HMAC).
+2. **Send**: `/report` (or `/report <scan_id>`) -> Bot executes two-step signed URL download and sends `cybersathi-<scan_id>.pdf` directly in chat. Verify the PDF contains the original message, defanged indicators, Section 3 External Threat Intelligence Outcomes table, rule IDs, and `cybercrime.gov.in` checklist.
+3. **Send**: `/delete <scan_id>` -> Confirms deletion; subsequent `/history` no longer shows that scan.
 
 ---
 
-### Test Case 8: Evidence Dossier PDF Generation & Verification
-* **Goal**: Validate that official PDF dossier generation runs completely in pure Python using ReportLab without external native C-libraries.
-* **Steps**:
-  1. Submit any high-risk scan (e.g., Test Case 1 or Test Case 2).
-  2. On the Result page, click **"Download Evidence Dossier (PDF)"** or **"View Evidence Dossier →"**.
-  3. Verify the generated PDF contains:
-     * Official Header: *"Cyber Fraud Evidence & Complaint Preparation Dossier"*
-     * Guidance reference to **`cybercrime.gov.in`**
-     * Submission Timestamp (UTC) and UUID Scan ID
-     * Defanged list of extracted URLs, phone numbers, or UPI IDs
-     * Triggered heuristic rule IDs list
-     * Step-by-step citizen complaint filing checklist
+## Direct Backend API Verification (`curl`)
 
----
+### 1. Synchronous Direct Scan (`defer_assessment: false`)
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -d '{"raw_content": "Electricity power disconnection tonight. Call +91 9876543210", "reported_financial_loss": true}'
+```
 
-### Test Case 9: Privacy Audit (User Deletion & Data Purge)
-* **Goal**: Verify that citizens can purge their sensitive reports at any time.
-* **Steps**:
-  1. Open the top navigation and click **"Scan History"** (`/history`).
-  2. Locate any previous scan in the list.
-  3. Click **"Delete"**.
-* **Expected Results**:
-  * Frontend sends `DELETE /api/v1/scans/{scan_id}`.
-  * Backend returns `204 No Content`.
-  * The submission record and its encrypted raw content are permanently erased from the SQLite database.
-  * Attempting to query `GET /api/v1/scans/{scan_id}` immediately returns `404 Not Found`.
+### 2. Simulated n8n Two-Step Flow (`defer_assessment: true` -> `/assess`)
+```bash
+# Step A: Create deferred scan
+curl -X POST http://127.0.0.1:8000/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Service-Token: dev-internal-service-token" \
+  -d '{"raw_content": "Verify KYC at https://bad-bank-test.xyz", "channel": "telegram", "requester_id": "12345", "defer_assessment": true}'
 
----
+# Step B: Post observations to /assess (replace <SCAN_ID>)
+curl -X POST http://127.0.0.1:8000/api/v1/scans/<SCAN_ID>/assess \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Service-Token: dev-internal-service-token" \
+  -d '{"observations": [{"type": "DOMAIN", "normalised_value": "bad-bank-test.xyz", "provider": "rdap", "outcome": "NO_MATCH", "response_reference": "2026-11-10T00:00:00Z"}]}'
+```

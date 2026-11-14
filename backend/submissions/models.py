@@ -16,10 +16,11 @@ class ScanStatus(models.TextChoices):
 
 class ScamSubmission(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    channel = models.CharField(max_length=16, default="web")
+    channel = models.CharField(max_length=16, default="telegram")
     input_type = models.CharField(max_length=16, default="text")
     raw_content_encrypted = models.TextField()
     content_hash = models.BinaryField(null=True, blank=True)
+    requester_hash = models.BinaryField(null=True, blank=True, db_index=True)
     status = models.CharField(max_length=16, choices=ScanStatus.choices, default=ScanStatus.PENDING)
     reported_financial_loss = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

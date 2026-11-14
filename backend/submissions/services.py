@@ -11,18 +11,36 @@ from submissions import normalisation as norm
 logger = logging.getLogger(__name__)
 
 
+def defang_value(indicator_type: str, value: str) -> str:
+    """Defang URLs/Domains so messaging apps never render clickable malicious links."""
+    if indicator_type in ("URL", "DOMAIN"):
+        return value.replace("http", "hxxp").replace(".", "[.]")
+    if indicator_type in ("EMAIL", "UPI"):
+        return value.replace("@", "[@]")
+    return value
+
+
 def create_submission(
-    raw_content: str, channel: str = "web", reported_financial_loss: bool = False
+    raw_content: str,
+    channel: str = "telegram",
+    reported_financial_loss: bool = False,
+    requester_id: str = "",
 ) -> ScamSubmission:
     limit = getattr(settings, "MAX_INPUT_CHARS", 5000)
     text = norm.normalise_text(raw_content, max_chars=limit)
     content_digest, _ = hmac_digest(text)
+
+    requester_digest = None
+    clean_requester = (requester_id or "").strip()
+    if clean_requester:
+        requester_digest, _ = hmac_digest(f"{channel}:{clean_requester}")
 
     with transaction.atomic():
         submission = ScamSubmission.objects.create(
             channel=channel,
             input_type="url" if norm.extract_urls(text) else "text",
             reported_financial_loss=reported_financial_loss,
+            requester_hash=requester_digest,
         )
         submission.raw_content = text
         submission.content_hash = content_digest

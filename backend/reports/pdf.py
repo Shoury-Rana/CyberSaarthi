@@ -11,15 +11,15 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from indicators.models import IndicatorObservation, threat_indicators_for
 from submissions.models import ScamSubmission
 
-# Attempt to register standard Windows Unicode font; fallback to Helvetica safely
 FONT_NAME = "Helvetica"
 FONT_BOLD = "Helvetica-Bold"
 
 for name, path in [
-    ("Arial", "C:\\Windows\\Fonts\\arial.ttf"),
     ("Nirmala", "C:\\Windows\\Fonts\\Nirmala.ttf"),
+    ("Arial", "C:\\Windows\\Fonts\\arial.ttf"),
     ("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
 ]:
     if os.path.exists(path):
@@ -37,7 +37,6 @@ def _defang(text: str) -> str:
 
 
 def _safe_pdf_text(text: str) -> str:
-    """Escapes XML entities and handles character sets safely for ReportLab."""
     if not text:
         return ""
     if FONT_NAME == "Helvetica":
@@ -50,6 +49,10 @@ def generate_pdf(scan_id: str) -> bytes:
     submission = ScamSubmission.objects.get(id=scan_id)
     assessment = getattr(submission, "assessment", None)
     indicators = list(submission.indicators.all())
+
+    pairs = {(i.indicator_type, bytes(i.digest)) for i in indicators}
+    threat_rows = threat_indicators_for(pairs)
+    observations = list(IndicatorObservation.objects.filter(indicator__in=threat_rows)[:20])
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -182,14 +185,39 @@ def generate_pdf(scan_id: str) -> bytes:
     else:
         story.append(Paragraph("No structural URLs, Phone numbers or UPI IDs detected.", body_style))
 
-    story.append(Paragraph("3. Heuristic Rules &amp; Triggered Signals", h2_style))
+    story.append(Paragraph("3. External Threat Intelligence Outcomes", h2_style))
+    if observations:
+        obs_data = [["Provider", "Outcome", "Reference / Registration Date"]]
+        for obs in observations:
+            obs_data.append([
+                _safe_pdf_text(obs.provider),
+                _safe_pdf_text(obs.outcome),
+                _safe_pdf_text(obs.response_reference or "-"),
+            ])
+        t_obs = Table(obs_data, colWidths=[120, 110, 310])
+        t_obs.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+                    ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                    ("PADDING", (0, 0), (-1, -1), 4),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        story.append(t_obs)
+    else:
+        story.append(Paragraph("No external threat intelligence queries recorded for this submission.", body_style))
+
+    story.append(Paragraph("4. Heuristic Rules &amp; Triggered Signals", h2_style))
     if assessment and assessment.rule_ids:
         story.append(Paragraph(f"<b>Triggered Heuristics:</b> {', '.join(assessment.rule_ids)}", body_style))
         story.append(Paragraph(f"<b>Ruleset Version:</b> {assessment.ruleset_version} | <b>Confidence:</b> {assessment.confidence}", body_style))
     else:
         story.append(Paragraph("No automated fraud heuristics triggered.", body_style))
 
-    story.append(Paragraph("4. Citizen Filing Checklist (Official Guidance)", h2_style))
+    story.append(Paragraph("5. Citizen Filing Checklist (Official Guidance)", h2_style))
     checklist_text = (
         "• Take complete screenshots of the SMS / WhatsApp message with sender IDs visible.<br/>"
         "• If financial transaction occurred, note down Bank UTR Number and Transaction Reference ID.<br/>"

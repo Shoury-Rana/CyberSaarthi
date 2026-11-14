@@ -40,4 +40,6 @@ def report_pdf(request: Request, scan_id: str) -> Response | HttpResponse:
         return problem("Invalid or expired token", 403)
 
     pdf_bytes = generate_pdf(scan_id)
-    return HttpResponse(pdf_bytes, content_type="application/pdf")
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="cybersathi-{scan_id}.pdf"'
+    return response

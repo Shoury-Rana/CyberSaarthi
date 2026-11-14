@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "test-internal-token")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 os.environ.setdefault("DJANGO_SECRET_KEY", "test-secret-key-32-chars-long!!")
 os.environ.setdefault(

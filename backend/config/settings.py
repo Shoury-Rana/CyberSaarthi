@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import sys
 from pathlib import Path
 import environ
 
@@ -19,6 +17,7 @@ env = environ.Env(
     IDENTIFIER_HMAC_KEY=(str, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="),
     IDENTIFIER_HMAC_KEY_ID=(str, "v1"),
     FIELD_ENCRYPTION_KEY=(str, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+    INTERNAL_SERVICE_TOKEN=(str, "dev-internal-service-token"),
     MAX_INPUT_CHARS=(int, 5000),
     RETENTION_DAYS=(int, 30),
 )
@@ -63,16 +62,16 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "submissions": "60/hour",
-        "reports": "20/hour",
+        "submissions": "120/hour",
+        "reports": "30/hour",
         "default": "120/minute",
     },
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Citizen CyberSathi API",
-    "DESCRIPTION": "Citizen Phishing Early-Warning & Threat Assessment System",
-    "VERSION": "2.0.0",
+    "DESCRIPTION": "Citizen Phishing Early-Warning & Threat Assessment System (Telegram + n8n SOAR)",
+    "VERSION": "2.1.0",
 }
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -83,3 +82,4 @@ RETENTION_DAYS = env("RETENTION_DAYS")
 IDENTIFIER_HMAC_KEY = env("IDENTIFIER_HMAC_KEY")
 IDENTIFIER_HMAC_KEY_ID = env("IDENTIFIER_HMAC_KEY_ID")
 FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY")
+INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN")
